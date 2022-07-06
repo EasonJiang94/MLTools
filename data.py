@@ -1,5 +1,5 @@
 from copy import deepcopy as dcp
-
+import os
 class Data(object):
     idx = 0
     label_template = {
@@ -17,7 +17,7 @@ class Data(object):
     }
     def __init__(self, image_name="Unknown"):
         self.image_name = image_name
-        self.image_path = "Unknown"
+        self.image_dir = "Unknown"
         self.labels = []
         self.ir = False
         self.cam_name = "Unknown"
@@ -27,10 +27,22 @@ class Data(object):
     def label_num(self) ->int:
         return len(self.labels)
 
-    def set_resolution(self,w:int,h:int):
+    @property
+    def image_path(self):
+        assert os.path.exists(image_dir), f"image dir is not inexist : {image_dir}"
+        image_path = os.path.join(self.image_dir, self.image_name)
+        if not os.path.exists(image_path):
+            print(f"Warning! image path is not exist : {image_path}")
+        return image_path
+
+    def set_image_dir(self, image_dir:str):
+        assert os.path.exists(image_dir), f"image dir is not inexist : {image_dir}"
+        self.image_dir = image_dir
+
+    def set_resolution(self, w:int, h:int):
         self.resolution = (w,h)
 
-    def set_resolution(self,resolution:tuple):
+    def set_resolution(self, resolution:tuple):
         assert len(resolution)==2, 'size of resolution must be 2'
         assert isinstance(resolution[0], int), 'element of resolution must be int'
         assert isinstance(resolution[1], int), 'element of resolution must be int'

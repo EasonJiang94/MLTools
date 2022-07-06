@@ -103,6 +103,7 @@ class Dataset(object):
                 label_list = self._parse_yolo_labels(label_path)
                 resolution = Image.open(image_path).size # w, h
                 data.set_resolution(resolution)
+                data.set_image_dir(image_dir)
                 self.bbox_cnt += len(label_list)
                 for label in label_list:
                     assert "xywh" in label, "no xywh in label"
@@ -132,10 +133,11 @@ class Dataset(object):
             if os.path.exists(label_path):
                 label_list, resolution = self._parse_labelme_labels(label_path)
                 data.set_resolution(resolution)
+                data.set_image_dir(image_dir)
                 self.bbox_cnt += len(label_list)
                 for label in label_list:
                     assert "xyxy" in label, "no xyxy in label"
-                    data.add_by_xyxy(label["xyxy"], class_name=label["class"], attribute=None)
+                    data.add_by_xyxy(label["xyxy"], class_name=label["class"], attribute=None, ratio=False)
                     if label["class"] in self.class_list:
                         pass
                     else : 
