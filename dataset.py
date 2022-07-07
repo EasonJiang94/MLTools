@@ -35,6 +35,9 @@ class Dataset(object):
             for line in yolo_file:
                 line = line.replace("\n","")
                 c, x, y, w, h = line.split(' ')
+                if c not in self.class_filter:
+                    # print(f"{c = }\n{self.class_filter = }")
+                    continue
                 c = int(c)
                 x = float(x)
                 y = float(y)
@@ -88,11 +91,13 @@ class Dataset(object):
                 ymax = y
         return (xmin, ymin, xmax, ymax)
             
-    def import_from_yolo(self, image_dir, label_dir, attribute=None):
+    def import_from_yolo(self, image_dir, label_dir, attribute=None, class_filter = [], set_ir_flag=False):
         self.image_dir_list.append(image_dir)
         self.label_dir_list.append(label_dir)
+        self.class_filter = class_filter
         image_path_list = self._get_file_path_list(image_dir, extend=".jpg")
-        for image_path in image_path_list:
+        for image_path_idx, image_path in enumerate(image_path_list):
+            print(f"import_from_yolo : {image_path_idx / len(image_path_list)*100:2.2f}%", end='\r')
             image_name = os.path.split(image_path)[1]
             label_path = self._path_to_path(image_path, label_dir, ext=".txt")
             if image_name in self.data_dict:
@@ -114,16 +119,20 @@ class Dataset(object):
                         self.class_list.append(label["class"])
                 pass
             else:
-
                 pass
+            if set_ir_flag:
+                data.set_ir_flag()
             self.data_dict[image_name] = data
             # print(data)
+        print(f"import_from_yolo : 100.00%")
 
-    def import_from_labelme(self, image_dir, label_dir, attribute=None):
+    def import_from_labelme(self, image_dir, label_dir, attribute=None, set_ir_flag=False, blacklist = []):
         self.image_dir_list.append(image_dir)
         self.label_dir_list.append(label_dir)
+        self.blacklist = blacklist
         label_path_list = self._get_file_path_list(label_dir, extend=".json")
-        for label_path in label_path_list:
+        for label_path_idx, label_path in enumerate(label_path_list):
+            print(f"import_from_labelme : {label_path_idx / len(label_path_list)*100:2.2f}%", end='\r')
             image_path = self._path_to_path(label_path, image_dir, ext=".jpg")
             image_name = os.path.split(image_path)[1]
             if image_name in self.data_dict:
@@ -136,6 +145,9 @@ class Dataset(object):
                 data.set_image_dir(image_dir)
                 self.bbox_cnt += len(label_list)
                 for label in label_list:
+                    if label["class"] in self.blacklist:
+                        self.bbox_cnt -= 1
+                        continue
                     assert "xyxy" in label, "no xyxy in label"
                     data.add_by_xyxy(label["xyxy"], class_name=label["class"], attribute=None, ratio=False)
                     if label["class"] in self.class_list:
@@ -147,9 +159,10 @@ class Dataset(object):
             else:
                 # print(f"{image_path = }, \n{label_path = }")
                 pass
-
+            if set_ir_flag:
+                data.set_ir_flag()
             self.data_dict[image_name] = data
-
+        print(f"import_from_labelme : 100.00%")
     def __repr__(self):
         return (f"Dataset name : {self.name}" \
         f"\nClasses list : {self.class_list}" \

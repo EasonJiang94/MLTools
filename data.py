@@ -1,4 +1,6 @@
 from copy import deepcopy as dcp
+import cv2
+from numpy import array_equal
 import os
 class Data(object):
     idx = 0
@@ -19,7 +21,7 @@ class Data(object):
         self.image_name = image_name
         self.image_dir = "Unknown"
         self.labels = []
-        self.ir = False
+        self.ir = None
         self.cam_name = "Unknown"
         self.resolution = None # w, h
         
@@ -29,7 +31,7 @@ class Data(object):
 
     @property
     def image_path(self):
-        assert os.path.exists(image_dir), f"image dir is not inexist : {image_dir}"
+        assert os.path.exists(self.image_dir), f"image dir is not inexist : {self.image_dir}"
         image_path = os.path.join(self.image_dir, self.image_name)
         if not os.path.exists(image_path):
             print(f"Warning! image path is not exist : {image_path}")
@@ -47,6 +49,21 @@ class Data(object):
         assert isinstance(resolution[0], int), 'element of resolution must be int'
         assert isinstance(resolution[1], int), 'element of resolution must be int'
         self.resolution = resolution
+
+    def set_ir_flag(self):
+        assert os.path.exists(self.image_dir), f"image dir is not inexist : {self.image_dir}"
+        image_path = os.path.join(self.image_dir, self.image_name)
+        if not os.path.exists(image_path):
+            print(f"Warning! image path is not exist : {image_path}")
+        image = cv2.imread(self.image_path)
+        if image is None:
+            print(f"Warning! image is none : {self.image_path}")
+            return
+        if array_equal(image[0,:,:], image[1, :, :]):
+            IR_FLAG = True
+        else:
+            IR_FLAG = False
+        self.ir = IR_FLAG
 
     def add_by_xyxy(self, xyxy:list, \
                     ratio=True, \
@@ -93,8 +110,7 @@ class Data(object):
 
         label["c"] = conf
         self.labels.append(label)
-                
-    
+                  
     def add_by_xywh(self, xywh:list, \
                     ratio=True, \
                     conf=1.0, \
