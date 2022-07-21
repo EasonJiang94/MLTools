@@ -1,12 +1,13 @@
 from copy import deepcopy as dcp
 import cv2
 from numpy import array_equal
+import numpy as np
 import os
 class Data(object):
     idx = 0
     label_template = {
         "class_name" : "human",
-        "attribute" : [],
+        "attributes" : [],
         "x" : 0.0,
         "y" : 0.0,
         "w" : 0.0,
@@ -15,7 +16,9 @@ class Data(object):
         "ymin" : 0.0,
         "xmax" : 0.0,
         "ymax" : 0.0,        
+        "seg" : None,
         "c" : 1.0 ## means confidence score, conf of gt always be 1.0
+        
     }
     def __init__(self, image_name="Unknown"):
         self.image_name = image_name
@@ -59,17 +62,18 @@ class Data(object):
         if image is None:
             print(f"Warning! image is none : {self.image_path}")
             return
-        if array_equal(image[0,:,:], image[1, :, :]):
+        if array_equal(image[:,:,0], image[:, :, 1]):
             IR_FLAG = True
         else:
             IR_FLAG = False
+            
         self.ir = IR_FLAG
 
     def add_by_xyxy(self, xyxy:list, \
                     ratio=True, \
                     conf=1.0, \
                     class_name=None, \
-                    attribute=None):
+                    attributes=None):
         xmin = xyxy[0]
         ymin = xyxy[1]
         xmax = xyxy[2]
@@ -83,8 +87,8 @@ class Data(object):
         label = dcp(Data.label_template)
         if class_name:
             label["class_name"] = class_name
-        if attribute:
-            label["attribute"] = attribute
+        if attributes:
+            label["attributes"] = attributes
 
         if ratio:
             label["x"] = x
@@ -115,15 +119,15 @@ class Data(object):
                     ratio=True, \
                     conf=1.0, \
                     class_name=None, \
-                    attribute=None):
+                    attributes=None):
         
         
 
         label = dcp(Data.label_template)
         if class_name:
             label["class_name"] = class_name
-        if attribute:
-            label["attribute"] = attribute
+        if attributes:
+            label["attributes"] = attributes
         x, y, w, h = xywh
         xmin = x - (w / 2)
         ymin = y - (h / 2)
@@ -153,6 +157,65 @@ class Data(object):
                 print("[Data] ERROR, no resolution info")
                 return
         self.labels.append(label)
+
+    def add_by_seg(self, seg:list, \
+                    bbox=None, \
+                    ratio=False, \
+                    conf=1.0, \
+                    class_name=None, \
+                    attributes=None):
+        label = dcp(Data.label_template)
+        if attributes:
+            label["attributes"] = attributes
+        if bbox:
+            x, y, w, h = bbox
+            x = int(x)
+            y = int(y)
+            w = int(w)
+            h = int(h)
+            xmin = x
+            ymin = y
+            xmax = x + w 
+            ymax = y + h 
+        else:
+            x_axis = (i for idx, i in enumerate(seg) if idx %2 == 0)
+            y_axis = (i for idx, i in enumerate(seg) if idx %2 == 1)
+            xmin = min(x_axis)
+            xmax = max(x_axis)
+            x_axis = (i for idx, i in enumerate(seg) if idx %2 == 0)
+            y_axis = (i for idx, i in enumerate(seg) if idx %2 == 1)
+            ymin = min(y_axis)
+            ymax = max(y_axis)
+
+        if ratio:
+            label["x"] = x
+            label["y"] = y
+            label["w"] = w
+            label["h"] = h
+            label["c"] = conf
+            label["xmin"] = int(xmin * self.resolution[0])
+            label["ymin"] = int(ymin * self.resolution[1])
+            label["xmax"] = int(xmax * self.resolution[0])
+            label["ymax"] = int(ymax * self.resolution[1])
+        else:
+            if self.resolution:
+                label["x"] = x / self.resolution[0]
+                label["y"] = y / self.resolution[1]
+                label["w"] = w / self.resolution[0]
+                label["h"] = h / self.resolution[1]
+                label["xmin"] = int(xmin)
+                label["ymin"] = int(ymin)
+                label["xmax"] = int(xmax)
+                label["ymax"] = int(ymax)
+            else:
+                print("[Data] ERROR, no resolution info")
+                return
+        # print(f"{len(seg[0]) = }\n{seg = }")    
+        seg_reshape = np.reshape(seg, (int(len(seg[0])/2), 2))
+        label["seg"] = seg_reshape
+        # print(f"{seg_reshape = }")
+        self.labels.append(label)
+        # print(label)
 
     def __repr__(self):
         return f"image_name = {self.image_name},\n labels : {self.labels}"
