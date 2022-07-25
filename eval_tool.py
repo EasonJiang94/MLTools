@@ -2,20 +2,8 @@ import os
 from dataset import Dataset
 from data import Data
 import cv2
+from utils import make_if_inexist_recursive, make_if_inexist
 
-def make_if_inexist_recursive(script_dir: str, round=0) -> str:
-    script_dir_path = f"{script_dir}_{round:02d}"
-    if not os.path.exists(script_dir_path):
-        os.makedirs(script_dir_path)
-        return script_dir_path
-    else:
-        return make_if_inexist_recursive(script_dir,round+1)
-        
-def make_if_inexist(script_dir: str) -> str:
-    script_dir_path = f"{script_dir}"
-    if not os.path.exists(script_dir_path):
-        os.makedirs(script_dir_path)
-        
     
 
 class EvalTool(object):
@@ -197,9 +185,9 @@ class EvalTool(object):
         self.color_fn_by_class = {}
         self.color_tn_by_class = {}
         ## base on GT ###
-        image_name_list = self.gt.data_dict.keys()
-        for iter_idx, image_name in enumerate(image_name_list):
-            print(f"run_benchmark : {iter_idx / len(image_name_list)*100:2.2f}%", end='\r')
+
+        for iter_idx, image_name in enumerate(self.gt.data_dict):
+            print(f"run_benchmark : {iter_idx / len(self.gt.data_dict)*100:2.2f}%", end='\r')
 
             pred_data = self.pred.data_dict.get(image_name)
             gt_data   = self.gt.data_dict.get(image_name)

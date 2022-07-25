@@ -18,7 +18,6 @@ class Data(object):
         "ymax" : 0.0,        
         "seg" : None,
         "c" : 1.0 ## means confidence score, conf of gt always be 1.0
-        
     }
     def __init__(self, image_name="Unknown"):
         self.image_name = image_name
@@ -27,6 +26,7 @@ class Data(object):
         self.ir = None
         self.cam_name = "Unknown"
         self.resolution = None # w, h
+        self._image = None
         
     @property
     def label_num(self) ->int:
@@ -53,21 +53,42 @@ class Data(object):
         assert isinstance(resolution[1], int), 'element of resolution must be int'
         self.resolution = resolution
 
-    def set_ir_flag(self):
+    def _read_image(self):
+        if not self._image is None:
+            return True
         assert os.path.exists(self.image_dir), f"image dir is not inexist : {self.image_dir}"
         image_path = os.path.join(self.image_dir, self.image_name)
         if not os.path.exists(image_path):
             print(f"Warning! image path is not exist : {image_path}")
-        image = cv2.imread(self.image_path)
-        if image is None:
+            return False
+        self._image = cv2.imread(self.image_path)
+        if self._image is None:
             print(f"Warning! image is none : {self.image_path}")
-            return
-        if array_equal(image[:,:,0], image[:, :, 1]):
-            IR_FLAG = True
-        else:
-            IR_FLAG = False
+            return False
+        return True
             
-        self.ir = IR_FLAG
+        
+    def set_ir_flag(self):
+        if not self._read_image():
+            return False
+        if array_equal(self._image[:,:,0], self._image[:, :, 1]):
+            self.ir = True
+        else:
+            self.ir = False
+        return True
+
+    def set_image(self, image):
+        self.image = image
+
+    def get_image(self):
+        if self._read_image():
+            return self._image
+        else:
+            return None
+
+    def free_image(self):
+        del(self._image)
+        self._image = None
 
     def add_by_xyxy(self, xyxy:list, \
                     ratio=True, \
@@ -178,14 +199,11 @@ class Data(object):
             xmax = x + w 
             ymax = y + h 
         else:
-            x_axis = (i for idx, i in enumerate(seg) if idx %2 == 0)
-            y_axis = (i for idx, i in enumerate(seg) if idx %2 == 1)
-            xmin = min(x_axis)
-            xmax = max(x_axis)
-            x_axis = (i for idx, i in enumerate(seg) if idx %2 == 0)
-            y_axis = (i for idx, i in enumerate(seg) if idx %2 == 1)
-            ymin = min(y_axis)
-            ymax = max(y_axis)
+            
+            xmin = min(seg[:,0])
+            xmax = max(seg[:,0])
+            ymin = min(seg[:,1])
+            ymax = max(seg[:,1])
 
         if ratio:
             label["x"] = x
@@ -211,8 +229,8 @@ class Data(object):
                 print("[Data] ERROR, no resolution info")
                 return
         # print(f"{len(seg[0]) = }\n{seg = }")    
-        seg_reshape = np.reshape(seg, (int(len(seg[0])/2), 2))
-        label["seg"] = seg_reshape
+
+        label["seg"] = seg
         # print(f"{seg_reshape = }")
         self.labels.append(label)
         # print(label)

@@ -3,6 +3,9 @@ import numpy as np
 from data import Data
 import orjson
 from PIL import Image
+import random
+from utils import make_if_inexist_recursive, make_if_inexist
+import cv2
 class Dataset(object):
     yolo_class_tabel = {
         0 : "human"
@@ -111,6 +114,8 @@ class Dataset(object):
         local_img_cnt = 0
         local_bbox_cnt = 0
         for image_path_idx, image_path in enumerate(image_path_list):
+            # if image_path_idx >= 5:
+            #     break
             print(f"import_from_yolo : {image_path_idx / len(image_path_list)*100:2.2f}%", end='\r')
             image_name = os.path.split(image_path)[1]
             label_path = self._path_to_path(image_path, label_dir, ext=".txt")
@@ -128,7 +133,7 @@ class Dataset(object):
                 local_bbox_cnt += len(label_list)
                 for label in label_list:
                     assert "xywh" in label, "no xywh in label"
-                    data.add_by_xywh(label["xywh"], class_name=label["class"], attribute=None)
+                    data.add_by_xywh(label["xywh"], class_name=label["class"], attributes=None)
                     if label["class"] in self.class_list:
                         pass
                     else : 
@@ -196,6 +201,8 @@ class Dataset(object):
         for label_path_idx, label_path in enumerate(label_path_list):
             images, anns, categories = self._parse_v7_seg_labels(label_path)
             for image_idx, image_info in enumerate(images):
+                # if image_idx >= 50:
+                #     break
                 print(f"import_from_v7 : {image_idx / len(images)*100:2.2f}%", end='\r')
                 image_name = image_info.get("file_name")
                 image_id = image_info.get("id")
@@ -221,7 +228,8 @@ class Dataset(object):
                     category_id = ann.get("ann_for_this_img", 1)
                     class_name = categories[category_id -1].get("name")
                     # print(f"{class_name = }, {attribute = }, {bbox = }")
-                    data.add_by_seg(seg, bbox=bbox, attributes=attributes, class_name=class_name)
+                    seg_reshape = np.reshape(seg, (int(len(seg[0])/2), 2))
+                    data.add_by_seg(seg_reshape, bbox=bbox, attributes=attributes, class_name=class_name)
                     local_segmentation_cnt += 1
                     self.data_dict[image_name] = data
                     if class_name in self.class_list:
@@ -232,6 +240,32 @@ class Dataset(object):
                 # print(f"{image_idx = }, {len(list(ann_for_this_img))}")
         self.bbox_cnt += local_segmentation_cnt
         print(f"import_from_v7_segmentation : 100.00%, has {local_img_cnt} images and {local_segmentation_cnt} segmentations")
+
+    def export_yolo_format(self, output_dir):
+        image_dir = os.path.join(output_dir, "images")
+        label_dir = os.path.join(output_dir, "labels")
+        make_if_inexist(image_dir)
+        make_if_inexist(label_dir)
+        for data in self:
+            print(f"{data.image_name = }")
+            output_image_path = os.path.join(image_dir, data.image_name)
+            output_label_path = os.path.join(label_dir, data.image_name.replace(".jpg", ".txt"))
+            cv2.imwrite(output_image_path, data.image)
+            with open(output_label_path, "w") as f:
+                for label in data.labels:
+                    output_str = f"0 {label['x']} {label['y']} {label['w']} {label['h']}\n"
+                    f.write(output_str)
+
+    def get_random_data(self, n=1):
+        datas = random.choices(list(self.data_dict.values()), k=n)
+        return datas
+
+    def __iter__(self):
+        for data in self.data_dict.values():
+            yield data           
+
+    def __len__(self):
+        return len(self.data_dict)
 
     def __repr__(self):
         return (f"Dataset name : {self.name}" \
